@@ -11,8 +11,20 @@ def extract_text_from_pdf(pdf_path):
     if path.suffix.lower() != ".pdf":
         raise ValueError("所选文件不是 PDF，请提供 .pdf 文件。")
 
+    return _extract_text(path)
+
+
+def extract_text_from_uploaded_pdf(uploaded_file):
+    if not uploaded_file.name.lower().endswith(".pdf"):
+        raise ValueError("所选文件不是 PDF，请提供 .pdf 文件。")
+
+    uploaded_file.seek(0)   #把读取位置重新移动到文件开头
+    return _extract_text(uploaded_file)
+
+
+def _extract_text(source):
     try:
-        reader = PdfReader(path)
+        reader = PdfReader(source)
         page_texts = []
         for page in reader.pages:
             page_texts.append(page.extract_text() or "")

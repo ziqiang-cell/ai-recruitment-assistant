@@ -1,6 +1,6 @@
-# AI 招聘助手 V2
+# AI 招聘助手 V3
 
-程序读取手动输入的岗位 JD，从 PDF 简历中提取文字，生成 Prompt，调用 DeepSeek API，并在终端打印招聘分析结果。
+可以在浏览器中输入岗位 JD、上传 PDF 简历并查看招聘分析结果。原有命令行版本仍可使用本地 PDF 路径。
 
 ## 安装依赖
 
@@ -10,7 +10,7 @@
 python -m pip install -r requirements.txt
 ```
 
-这会安装 V2 新增的 `pypdf`，以及项目原有的依赖。
+这会安装 V3 新增的 `streamlit`，以及项目原有的依赖。
 
 如果 Windows 上 `python` 命令不可用，将命令中的 `python` 换成 `py`。
 
@@ -24,22 +24,33 @@ python -m pip install -r requirements.txt
 
 ## 运行
 
+命令行版本：
+
 ```bash
 python main.py
 ```
 
-先输入岗位 JD，可以输入多行；输入空行结束。然后输入 PDF 简历的文件路径，例如 `C:\Users\你\Documents\resume.pdf`。程序会提取简历文字，调用 API 并打印分析结果。JD 用空行作为结束标记，因此 JD 内容中暂时不要留空行。API 调用需要网络连接，可能产生费用。
+输入岗位 JD，以空行结束；再输入本地 PDF 简历路径，例如 `C:\Users\你\Documents\resume.pdf`。
+
+Web 版本：
+
+```bash
+streamlit run app.py
+```
+
+浏览器打开终端显示的地址，输入岗位 JD、上传 PDF 简历，点击“开始分析”。如果 `streamlit` 命令不可用，可以运行 `python -m streamlit run app.py`。API 调用需要网络连接，可能产生费用。
 
 目前只支持**包含可复制文字**的 PDF。扫描件或纯图片 PDF 无法提取文字，暂时不支持 OCR。如果提示“未提取到文字”，请换用文字版 PDF。
 
 ## 文件
 
+- `app.py`：Streamlit Web 入口，负责输入、校验、加载提示和结果展示。
 - `main.py`：读取 JD 和 PDF 路径，调用 PDF 解析、Prompt 和大模型函数，打印分析结果。
-- `pdf_parser.py`：逐页提取 PDF 中的文字，并提示常见文件错误。
+- `pdf_parser.py`：从本地 PDF 路径或 Streamlit 上传文件中逐页提取文字。
 - `prompt.py`：用 `build_prompt(jd, resume)` 拼接提示词。
 - `llm.py`：读取 API Key，调用 DeepSeek，返回模型回答。
 - `requirements.txt`：列出运行时需要安装的第三方包。
 - `.env.example`：API Key 配置示例，不含真实密钥。
 - `.gitignore`：避免将 `.env` 等本地文件加入 Git。
 
-阅读代码时，先沿着 `main.py` 中的 `jd`、`pdf_path`、`resume_text`、`final_prompt` 和 `answer` 逐步追踪数据，再看 `pdf_parser.py` 如何逐页合并文字。
+阅读 Web 代码时，沿着 `app.py` 中的 `jd`、`uploaded_file`、`resume_text`、`final_prompt` 和 `answer` 逐步追踪数据；`main.py` 是独立保留的命令行入口。
