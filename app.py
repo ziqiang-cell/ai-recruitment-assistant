@@ -1,5 +1,6 @@
 import streamlit as st    #导入 streamlit 这个 Python 库，并且给它起一个简短的名字 st
 
+from analysis_parser import parse_analysis_response
 from llm import get_ai_response
 from pdf_parser import extract_text_from_uploaded_pdf
 from prompt import build_prompt
@@ -41,5 +42,38 @@ if st.button("开始分析", type="primary"):  #用户点击“开始分析”�
             st.error(str(error))
             st.stop()
 
+    try:
+        analysis = parse_analysis_response(answer)
+    except ValueError as error:
+        st.error(str(error))
+        st.stop()
+
     st.subheader("招聘分析结果")
-    st.markdown(answer or "模型未返回文本结果，请重试。")
+    st.write(f"模型估算岗位匹配度：{analysis['match_score']}/100（仅供招聘辅助参考）")
+
+    st.subheader("已匹配的岗位要求")
+    for item in analysis["matched_requirements"]:   #一个一个拿出已经匹配的岗位要求
+        st.write(f"{item['requirement']}：{item['evidence']}")
+    if not analysis["matched_requirements"]:
+        st.write("暂无明确匹配证据。")
+
+    st.subheader("未体现或不足的岗位要求")
+    for item in analysis["missing_requirements"]:
+        st.write(f"{item['requirement']}：{item['reason']}")
+    if not analysis["missing_requirements"]:
+        st.write("暂无。")
+
+    for title, field in (
+        ("候选人优势", "strengths"),
+        ("风险与待确认事项", "risks"),
+        ("建议面试问题", "interview_questions"),
+    ):
+        st.subheader(title)
+        if analysis[field]:
+            for number, text in enumerate(analysis[field], start=1):
+                st.write(f"{number}. {text}")
+        else:
+            st.write("暂无。")
+
+    st.subheader("总体总结")
+    st.write(analysis["summary"])

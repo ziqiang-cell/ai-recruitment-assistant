@@ -1,3 +1,6 @@
+import json
+
+from analysis_parser import parse_analysis_response
 from llm import get_ai_response
 from pdf_parser import extract_text_from_pdf
 from prompt import build_prompt
@@ -40,8 +43,14 @@ def main():
         print(f"错误：{error}")
         return
 
+    try:
+        analysis = parse_analysis_response(answer)
+    except ValueError as error:
+        print(f"错误：{error}")
+        return
+
     print("\n===== 招聘分析结果 =====\n")
-    print(answer)
+    print(json.dumps(analysis, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

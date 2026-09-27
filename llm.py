@@ -17,6 +17,8 @@ def get_ai_response(final_prompt):
         response = client.chat.completions.create(
             model="deepseek-flash",
             messages=[{"role": "user", "content": final_prompt}],
+            response_format={"type": "json_object"},
+            max_tokens=4096,
             stream=False,
         )
     except OpenAIError as error:
