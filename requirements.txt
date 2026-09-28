@@ -3,3 +3,4 @@ python-dotenv
 httpx[socks]
 pypdf
 streamlit
+chromadb

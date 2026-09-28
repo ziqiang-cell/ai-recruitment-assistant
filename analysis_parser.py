@@ -1,7 +1,7 @@
 import json   #全称：JavaScript Object Notation（JavaScript 对象表示法）
                 #现在可以理解为：一种用固定格式表示数据的文本格式
 
-def parse_analysis_response(response_text):
+def parse_analysis_response(response_text, allowed_sources=None):
     """把模型返回的 JSON 字符串解析并检查为招聘分析字典。"""
     try:
         analysis = json.loads(response_text)   #json.loads():从 JSON 字符串加载成 Python 对象。
@@ -24,7 +24,7 @@ def parse_analysis_response(response_text):
 
     required_fields = {
         "match_score", "matched_requirements", "missing_requirements",
-        "strengths", "risks", "interview_questions", "summary",
+        "strengths", "risks", "interview_questions", "knowledge_references", "summary",
     }
     if not isinstance(analysis, dict):
         raise ValueError("模型返回的分析必须是 JSON 对象，请重试。")
@@ -41,6 +41,7 @@ def parse_analysis_response(response_text):
     for field, item_fields in (
         ("matched_requirements", {"requirement", "evidence"}),
         ("missing_requirements", {"requirement", "reason"}),
+        ("knowledge_references", {"source", "evidence"}),
     ):
         items = analysis[field]
         if not isinstance(items, list):
@@ -51,6 +52,11 @@ def parse_analysis_response(response_text):
             for value in item.values():
                 if not isinstance(value, str) or not value.strip():
                     raise ValueError(f"模型返回的 {field} 格式不正确，请重试。")
+
+    if allowed_sources is not None:
+        for item in analysis["knowledge_references"]:
+            if item["source"] not in allowed_sources:
+                raise ValueError("模型引用了未检索到的知识库来源，请重试。")
 
     for field in ("strengths", "risks", "interview_questions"):
         items = analysis[field]
