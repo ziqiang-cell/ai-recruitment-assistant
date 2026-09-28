@@ -4,13 +4,38 @@ from analysis_parser import parse_analysis_response
 from llm import get_ai_response
 from pdf_parser import extract_text_from_uploaded_pdf
 from prompt import build_prompt
-from rag import build_or_update_knowledge_base, retrieve_context
+from rag import (
+    ensure_knowledge_base,
+    get_knowledge_base_status,
+    rebuild_knowledge_base,
+    retrieve_context,
+)
 
 
 st.set_page_config(page_title="AI 招聘助手")
 st.title("AI 招聘助手")
 st.write("输入岗位要求并上传 PDF 简历，获取候选人与岗位的匹配分析。")
 show_rag_debug = st.sidebar.checkbox("显示 RAG 检索结果")
+use_distance_threshold = st.sidebar.checkbox("启用 RAG 距离阈值过滤")
+max_distance = None
+if use_distance_threshold:
+    max_distance = st.sidebar.number_input("最大检索距离", min_value=0.0, value=1.0, step=0.1)
+    st.sidebar.caption("该阈值仅用于实验，需要根据当前 Embedding 和知识库进行校准。")
+
+st.sidebar.subheader("知识库状态")
+if st.sidebar.button("重建知识库"):
+    try:
+        with st.spinner("正在重建企业招聘知识库，请稍候..."):
+            rebuild_knowledge_base()
+        st.sidebar.success("知识库重建完成")
+    except Exception as error:
+        st.sidebar.error(f"知识库重建失败：{error}")
+try:
+    knowledge_status = get_knowledge_base_status()
+    st.sidebar.write(f"知识库文件：{knowledge_status['file_count']}")
+    st.sidebar.write(f"向量 Chunk：{knowledge_status['chunk_count']}")
+except Exception as error:
+    st.sidebar.error(f"读取知识库状态失败：{error}")
 
 jd = st.text_area("岗位 JD", height=200, placeholder="请粘贴岗位职责和任职要求") #CLI 的 input()，在 Web 里变成了 st.text_area()
 uploaded_file = st.file_uploader(
@@ -29,8 +54,8 @@ if st.button("开始分析", type="primary"):  #用户点击“开始分析”�
 
     try:
         with st.spinner("正在检索企业招聘标准，请稍候..."):
-            build_or_update_knowledge_base()
-            retrieved_chunks = retrieve_context(jd, top_k=4)
+            ensure_knowledge_base()
+            retrieved_chunks = retrieve_context(jd, top_k=4, max_distance=max_distance)
     except Exception as error:
         st.error(f"知识库构建或检索失败：{error}")
         st.stop()
@@ -38,10 +63,15 @@ if st.button("开始分析", type="primary"):  #用户点击“开始分析”�
     if show_rag_debug:
         st.sidebar.subheader("RAG 检索结果")
         for chunk in retrieved_chunks:
-            st.sidebar.write(f"来源：{chunk['source']}，片段：{chunk['chunk_index']}")
+            st.sidebar.write(f"来源：{chunk['source']}")
+            st.sidebar.write(f"片段：{chunk['chunk_index']}")
+            st.sidebar.write(f"向量检索距离：{chunk['distance']:.4f}")
             st.sidebar.write(chunk["text"])
         if not retrieved_chunks:
-            st.sidebar.write("未检索到知识库内容。")
+            if use_distance_threshold:
+                st.sidebar.write("当前阈值下未检索到足够相关的知识库内容。")
+            else:
+                st.sidebar.write("未检索到知识库内容。")
 
     try:
         resume_text = extract_text_from_uploaded_pdf(uploaded_file)

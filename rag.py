@@ -44,9 +44,6 @@ def _get_collection():         #连接 Chroma
 def build_or_update_knowledge_base():
     """切分文档，并用稳定 ID 写入本地 Chroma。"""
     documents = load_knowledge_documents()
-    if not documents:
-        raise ValueError("knowledge_base 中没有可用的 .md 或 .txt 文档。")
-
     collection = _get_collection()
     for document in documents:
         chunks = chunk_text(document["text"])
@@ -62,22 +59,54 @@ def build_or_update_knowledge_base():
     return collection.count()
 
 
-def retrieve_context(query, top_k=4):
+def ensure_knowledge_base():
+    """已有 Chunk 时直接使用；空库时才构建。"""
+    count = _get_collection().count()
+    if count > 0:
+        return count
+    return build_or_update_knowledge_base()
+
+
+def rebuild_knowledge_base():
+    """只重建招聘标准 collection，清除已删除文件留下的旧 Chunk。"""
+    client = chromadb.PersistentClient(path=str(DATABASE_DIR))
+    for collection in client.list_collections():
+        if collection.name == COLLECTION_NAME:
+            client.delete_collection(name=COLLECTION_NAME)
+            break
+    client.create_collection(name=COLLECTION_NAME)
+    return build_or_update_knowledge_base()
+
+
+def get_knowledge_base_status():
+    """返回有效知识库文件数和当前向量片段数。"""
+    return {
+        "file_count": len(load_knowledge_documents()),
+        "chunk_count": _get_collection().count(),
+    }
+
+
+def retrieve_context(query, top_k=4, max_distance=None):
     """ query按岗位 JD 查找最相关的知识库片段。   top_k=4 最多找 4 个最相关 Chunk"""
     collection = _get_collection()
-    if not query.strip() or collection.count() == 0:
+    if not query.strip() or top_k <= 0 or collection.count() == 0:
         return []
 
     result = collection.query(
         query_texts=[query],
         n_results=min(top_k, collection.count()),
-        include=["documents", "metadatas"],
+        include=["documents", "metadatas", "distances"],
     )
     chunks = []
-    for text, metadata in zip(result["documents"][0], result["metadatas"][0]):
+    for text, metadata, distance in zip(
+        result["documents"][0], result["metadatas"][0], result["distances"][0]
+    ):
+        if max_distance is not None and distance > max_distance:
+            continue
         chunks.append({
             "text": text,
             "source": metadata["source"],
             "chunk_index": metadata["chunk_index"],
+            "distance": distance,
         })
     return chunks

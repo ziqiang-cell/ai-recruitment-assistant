@@ -4,7 +4,7 @@ from analysis_parser import parse_analysis_response
 from llm import get_ai_response
 from pdf_parser import extract_text_from_pdf
 from prompt import build_prompt
-from rag import build_or_update_knowledge_base, retrieve_context
+from rag import ensure_knowledge_base, retrieve_context
 
 
 def read_text(title):
@@ -38,7 +38,7 @@ def main():
         return
 
     try:
-        build_or_update_knowledge_base()
+        ensure_knowledge_base()
         retrieved_chunks = retrieve_context(jd, top_k=4)
     except Exception as error:
         print(f"错误：知识库构建或检索失败：{error}")

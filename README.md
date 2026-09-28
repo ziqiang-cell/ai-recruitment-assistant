@@ -1,8 +1,18 @@
-# AI 招聘助手 V5
+# AI 招聘助手 V6
 
 输入岗位 JD 和 PDF 简历后，程序先检索企业招聘知识库，再调用 DeepSeek 生成结构化招聘分析。CLI 版本仍可使用本地 PDF 路径。
 
-V5 的 RAG 流程：招聘文档 → 固定长度 Chunk → 本地 Embedding → Chroma → Similarity Search → Prompt → LLM。候选人的能力和经历仍只根据简历判断。
+RAG 流程：招聘文档 → 固定长度 Chunk → 本地 Embedding → Chroma → Similarity Search → Prompt → LLM。候选人的能力和经历仍只根据简历判断。
+
+## RAG Engineering Improvements
+
+V6 可在调试区查看向量检索距离，并可实验性设置 `max_distance`：只保留距离不超过阈值的片段。阈值默认关闭，不代表概率或匹配百分比。`ensure_knowledge_base()` 只在空库时建库；知识库文件删除或缩短后，可用 `rebuild_knowledge_base()` 清除旧片段。侧边栏显示知识库文件数和 Chunk 数，并提供“重建知识库”按钮。
+
+无需 DeepSeek API Key 即可运行检索调试脚本：
+
+```bash
+python rag_smoke_test.py
+```
 
 ## 安装依赖
 
@@ -40,11 +50,11 @@ Web 版本：
 streamlit run app.py
 ```
 
-浏览器打开终端显示的地址，输入岗位 JD、上传 PDF 简历，点击“开始分析”。侧边栏勾选“显示 RAG 检索结果”，可查看实际检索到的来源、片段序号和文本；默认不显示。如果 `streamlit` 命令不可用，可以运行 `python -m streamlit run app.py`。DeepSeek API 调用需要网络连接，可能产生费用。
+浏览器打开终端显示的地址，输入岗位 JD、上传 PDF 简历，点击“开始分析”。侧边栏勾选“显示 RAG 检索结果”，可查看来源、片段序号、距离和文本；还可以启用实验性距离阈值，或点击“重建知识库”。如果 `streamlit` 命令不可用，可以运行 `python -m streamlit run app.py`。DeepSeek API 调用需要网络连接，可能产生费用。
 
 模型输出必须是指定结构的 JSON，包含 `knowledge_references`。如果模型返回无效 JSON、字段不完整或引用了未检索到的来源，程序会显示中文提示。匹配度是模型基于简历证据估算的辅助指标，不代表录用决定。
 
-`knowledge_base/` 存放企业招聘资料，当前三个 Markdown 文件都是虚构的测试标准，可加入 UTF-8 编码的 `.md` 或 `.txt` 文件。`chroma_db/` 是本地生成的向量数据库，已加入 `.gitignore`；修改知识库文档后再次分析会按稳定片段 ID 更新入库内容。
+`knowledge_base/` 存放企业招聘资料，当前三个 Markdown 文件都是虚构的测试标准，可加入 UTF-8 编码的 `.md` 或 `.txt` 文件。`chroma_db/` 是本地生成的向量数据库，已加入 `.gitignore`。修改、缩短或删除知识库文件后，请在侧边栏点击“重建知识库”，使索引与当前文件一致。
 
 目前只支持**包含可复制文字**的 PDF。扫描件或纯图片 PDF 无法提取文字，暂时不支持 OCR。如果提示“未提取到文字”，请换用文字版 PDF。
 
@@ -53,7 +63,8 @@ streamlit run app.py
 - `app.py`：Streamlit Web 入口，负责输入、RAG 调试开关和结构化结果展示。
 - `main.py`：命令行入口，读取 JD 和 PDF 路径，检索知识库并打印分析结果。
 - `pdf_parser.py`：从本地 PDF 路径或 Streamlit 上传文件中逐页提取文字。
-- `rag.py`：读取与切分知识库文档，写入 Chroma，并按 JD 检索相关片段。
+- `rag.py`：读取与切分知识库文档，管理本地 Chroma 索引，并按 JD 检索相关片段及距离。
+- `rag_smoke_test.py`：打印三个 Query 的检索片段和距离，不调用 DeepSeek。
 - `knowledge_base/`：三个虚构的招聘标准测试文档。
 - `prompt.py`：用 `build_prompt(jd, resume, retrieved_context)` 拼接提示词，并要求固定 JSON 结构。
 - `llm.py`：读取 API Key，调用 DeepSeek 的 JSON 输出模式，返回模型回答字符串。
