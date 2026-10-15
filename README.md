@@ -4,6 +4,12 @@
 
 RAG 流程：招聘文档 → 固定长度 Chunk → 本地 Embedding → Chroma → Similarity Search → Prompt → LLM。候选人的能力和经历仍只根据简历判断。
 
+## V6 验收状态（2026-10-15）
+
+V6 隔离功能验收结论为 **CONDITIONAL PASS**。最终有效记录 42 项：40 PASS、0 FAIL、2 BLOCKED（包含原始数据保护与 ZIP 校验）。真实 Chroma 和默认本地 Embedding 已在隔离环境验证；LLM 使用 Mock，Web 使用 Streamlit AppTest。真实 DeepSeek API、真实浏览器及生产流程未验收，原始数据库只做保护核对。
+
+详细记录见 [V6 验收收尾日志](工作日志/AI_Recruitment_Assistant_2026-10-15_V6_验收收尾日志.md)。验收包为 `AI_Recruitment_Assistant_V6_Acceptance_Delivery.zip`，SHA256：`dfeb6787ff37d65f58c69ef2ee6feb124382f0a3460705850b32425afddf7f3a`。验收包保存在项目外，不包含真实密钥、个人简历、数据库或模型资源。
+
 ## RAG Engineering Improvements
 
 V6 可在调试区查看向量检索距离，并可实验性设置 `max_distance`：只保留距离不超过阈值的片段。阈值默认关闭，不代表概率或匹配百分比。`ensure_knowledge_base()` 只在空库时建库；知识库文件删除或缩短后，可用 `rebuild_knowledge_base()` 清除旧片段。侧边栏显示知识库文件数和 Chunk 数，并提供“重建知识库”按钮。
