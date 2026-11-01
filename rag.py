@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import chromadb
+from chromadb.errors import NotFoundError
 
 
 PROJECT_DIR = Path(__file__).resolve().parent   #PROJECT_DIR就代表这个项目根目录
@@ -89,6 +90,32 @@ def get_knowledge_base_status():
 def retrieve_context(query, top_k=4, max_distance=None):
     """ query按岗位 JD 查找最相关的知识库片段。   top_k=4 最多找 4 个最相关 Chunk"""
     collection = _get_collection()
+    return _retrieve_from_collection(collection, query, top_k, max_distance)
+
+
+class KnowledgeBaseNotReadyError(RuntimeError):
+    """已有知识库数据库或招聘标准集合尚未准备好。"""
+
+
+def retrieve_existing_context(query, top_k=4, max_distance=None):
+    """只打开已有集合；PersistentClient 本身仍可能涉及底层持久化。"""
+    # 先检查已有 SQLite 数据库，避免对缺失目录/空目录初始化新库。
+    if not DATABASE_DIR.is_dir() or not (DATABASE_DIR / "chroma.sqlite3").is_file():
+        raise KnowledgeBaseNotReadyError("知识库尚未准备好。")
+
+    client = chromadb.PersistentClient(path=str(DATABASE_DIR))
+    try:
+        try:
+            collection = client.get_collection(name=COLLECTION_NAME)
+        except NotFoundError:
+            raise KnowledgeBaseNotReadyError("知识库尚未准备好。") from None
+        return _retrieve_from_collection(collection, query, top_k, max_distance)
+    finally:
+        client.close()
+
+
+def _retrieve_from_collection(collection, query, top_k, max_distance):
+    """V6 接口与 Tool 共用同一份 Top-K 和距离过滤逻辑。"""
     if not query.strip() or top_k <= 0 or collection.count() == 0:
         return []
 
